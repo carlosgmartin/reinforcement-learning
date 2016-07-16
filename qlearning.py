@@ -2,19 +2,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+
+
+def choose(state, actions):
+	return actions[np.random.choice(range(len(actions)))]
+
+def transition(state, action):
+	next_state = np.array(state) + np.array(action)
+	if next_state[0] < 0:
+		next_state[0] = 0
+	elif next_state[0] > size[0] - 1:
+		next_state[0] = size[0] - 1
+	if next_state[1] < 0:
+		next_state[1] = 0
+	elif next_state[1] > size[1] - 1:
+		next_state[1] = size[1] - 1
+	return next_state
+
+
+
+
 state = [0, 0]
 
 plt.set_cmap('gray')
 plt.ion()
 plt.show()
 
-size = (4, 6)
+size = (6, 4)
 
 axes = plt.axes()
 
 axes.get_xaxis().set_visible(False)
 axes.get_yaxis().set_visible(False)
-axes.add_patch(Rectangle((size[1] - 1, 0), 1, 1, alpha=.5, fill=True, color='green', linewidth=0))
+axes.add_patch(Rectangle((size[0] - 1, 0), 1, 1, alpha=.5, fill=True, color='green', linewidth=0))
 axes.add_patch(Rectangle((1, 0), 4, 1, alpha=.5, fill=True, color='red', linewidth=0))
 axes.set_aspect(1)
 
@@ -22,14 +42,22 @@ rectangle = Rectangle(state, 1, 1, alpha=1, fill=False, color='yellow', linewidt
 axes.add_patch(rectangle)
 
 data = np.random.normal(size=size)
-mesh = plt.pcolormesh(data)
+mesh = plt.pcolormesh(data.transpose())
+
+actions = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+
 while True:
 	rectangle.set_xy(state)
-	data += np.random.normal(size=size, scale=.1)
-	mesh.set_array(data.ravel())
+	data += np.random.normal(size=size, scale=.02)
+	mesh.set_array(data.transpose().ravel())
 	plt.pause(.01)
 
-	state[0] = (state[0] + 1) % size[1]
+	action = choose(state, actions)
+	print(action)
+	state = transition(state, action)
+
+
+
 
 
 
@@ -37,6 +65,11 @@ while True:
 
 
 exit()
+
+
+
+
+
 
 
 
