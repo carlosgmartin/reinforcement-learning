@@ -1,20 +1,56 @@
+# A simulation of the multi-armed bandit problem
+
 import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 import itertools
 
-# Add softmax and epsilon-greedy agents
+
+
+# An agent that chooses actions according to a Gibbs/Boltzmann distribution
+class SoftmaxAgent:
+	def __init__(self, temperature):
+		self.temperature = temperature
+
+	def __str__(self):
+		return 'Softmax agent ({:.2f})'.format(self.temperature)
+
+	def softmax(vector):
+		factors = np.exp(vector)
+		total = np.sum(factors)
+		probabilities = factors / total
+		return probabilities
+
+	def choose(self, actions):
+		return np.random.choice(actions, p=softmax(estimates))
+
+
+
+# An agent that chooses actions according to an epsilon-greedy strategy
+# Chooses a random action with a small probability epsilon to escape local minima
+class EpsilonGreedyAgent:
+	def __init__(self, epsilon):
+		self.epsilon = epsilon
+
+	def __str__(self):
+		return 'Epsilon-greedy agent ({:.2f})'.format(self.epsilon)
+
+	def choose(self, actions):
+		if np.random.uniform() < epsilon:
+			pass # Perform random strategy
+		else:
+			pass # Perform greedy strategy
 
 
 
 # A (cheating) agent that chooses the action with the highest expected reward
 class OptimalAgent:
-	def __str__(self):
-		return 'Optimal agent'
-
 	def __init__(self, rewards):
 		# The real expected rewards are 'sneaked in'
 		self.rewards = rewards
+
+	def __str__(self):
+		return 'Optimal agent'
 
 	def choose(self, actions):
 		return max(actions, key = lambda action: self.rewards[action])
@@ -48,7 +84,7 @@ class GreedyAgent:
 		self.counts = {} # Number of times each action has been performed
 
 	def choose(self, actions):
-		# Add pseudocounts, perform additive smoothing
+		# Add pseudocounts, perform additive smoothing (uniform prior)
 		for action in actions:
 			if action not in self.totals:
 				self.totals[action] = 0
@@ -59,16 +95,17 @@ class GreedyAgent:
 		estimates = {action: self.totals[action] / self.counts[action] for action in actions}
 		action = max(actions, key = lambda action: estimates[action])
 
-		self.counts[action] += 1
 		self.last_action = action # Remember the action that was performed when receiving the reward
 		return action
 
 	def receive(self, reward):
+		self.counts[self.last_action] += 1
 		self.totals[self.last_action] += reward
 
 
 
 # An agent that chooses an action according to the probability that it maximizes the expected reward
+# This one assumes rewards are sampled from a Bernoulli distribution with a beta distribution as a prior
 class ThompsonAgent:
 	def __str__(self):
 		return 'Thompson agent'
@@ -78,7 +115,7 @@ class ThompsonAgent:
 		self.failures = {}
 
 	def choose(self, actions):
-		# Add pseudocounts, perform additive smoothing
+		# Add pseudocounts, perform additive smoothing (uniform prior)
 		for action in actions:
 			if action not in self.successes:
 				self.successes[action] = 1
@@ -88,7 +125,7 @@ class ThompsonAgent:
 		estimates = {action: scipy.stats.beta.rvs(self.successes[action] + 1, self.failures[action] + 1) for action in actions}
 		action = max(actions, key = lambda action: estimates[action])
 
-		self.last_action = action
+		self.last_action = action # Remember the action that was performed when receiving the reward
 		return action
 		
 	def receive(self, reward):
@@ -118,7 +155,6 @@ rewards = {agent: [] for agent in agents}
 rounds = range(1000)
 for t in rounds:
 	for agent in agents:
-
 		# Find action chosen by agent
 		action = agent.choose(actions)
 
@@ -137,9 +173,9 @@ best_accumulated_rewards = [t * best_reward for t in rounds]
 # Find average regret per round (difference between best expected total reward and actual total reward, divided by number of rounds)
 for agent in agents:
 	accumulated_rewards = list(itertools.accumulate(rewards[agent]))
-	accumulated_regret = [best_accumulated_rewards[t] - accumulated_rewards[t] for t in rounds]
-	average_regret = [accumulated_regret[t] / (t + 1) for t in rounds]
-	plt.plot(average_regret, label = str(agent))
+	accumulated_regrets = [best_accumulated_rewards[t] - accumulated_rewards[t] for t in rounds]
+	average_regrets = [accumulated_regrets[t] / (t + 1) for t in rounds]
+	plt.plot(average_regrets, label = str(agent))
 
 plt.title('Multi-armed bandit problem with {} arms'.format(len(actions)))
 plt.xlabel('Rounds')
