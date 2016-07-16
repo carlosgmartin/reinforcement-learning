@@ -5,121 +5,125 @@ import itertools
 
 # Add softmax and epsilon-greedy agents
 
+
+
 # A (cheating) agent that chooses the action with the highest expected reward
 class OptimalAgent:
 	def __str__(self):
 		return 'Optimal agent'
-	def __init__(self, returns):
-		# The real expected returns are 'sneaked in'
-		self.returns = returns
+
+	def __init__(self, rewards):
+		# The real expected rewards are 'sneaked in'
+		self.rewards = rewards
+
 	def choose(self, actions):
-		return max(actions, key = lambda action: self.returns[action])
+		return max(actions, key = lambda action: self.rewards[action])
+
 	def receive(self, reward):
 		pass
+
+
 
 # An agent that chooses randomly between actions
 class RandomAgent:
 	def __str__(self):
 		return 'Random agent'
+
 	def choose(self, actions):
 		return np.random.choice(actions)
+
 	def receive(self, reward):
 		pass
 
-# An agent that chooses the action with the highest point estimate of the expected reward
-# This agent is very sensitive to the first few samples it uses for estimates
-class GreedyAgentOld:
-	def __str__(self):
-		return 'Greedy agent'
-	def __init__(self):
-		self.action_history = []
-		self.reward_history = []
-	def choose(self, actions):
-		# Point estimates for the expected reward of each action
-		totals = {action: 0 for action in actions}
-		counts = {action: 0 for action in actions}
-		for action, reward in zip(self.action_history, self.reward_history):
-			totals[action] += reward
-			counts[action] += 1
-		estimates = {action: totals[action] / (counts[action] + 1) for action in actions}
-		action = max(actions, key = lambda action: estimates[action])
-		self.action_history.append(action)
-		return action
-	def receive(self, reward):
-		self.reward_history.append(reward)
 
+
+# An agent that chooses the action with the highest point estimate of the expected reward
+# This agent is very sensitive to the first samples it obtains for estimates and can get stuck in a suboptimal strategy
 class GreedyAgent:
 	def __str__(self):
 		return 'Greedy agent'
+
 	def __init__(self):
-		self.totals = {} # Total reward that has been received for each action
+		self.totals = {} # Total reward received for each action
 		self.counts = {} # Number of times each action has been performed
+
 	def choose(self, actions):
-		# Point estimates for the expected reward of each action
+		# Add pseudocounts, perform additive smoothing
 		for action in actions:
 			if action not in self.totals:
 				self.totals[action] = 0
 			if action not in self.counts:
 				self.counts[action] = 1
 
+		# Find estimates for the expected reward of each action
 		estimates = {action: self.totals[action] / self.counts[action] for action in actions}
 		action = max(actions, key = lambda action: estimates[action])
+
 		self.counts[action] += 1
-		self.last_action = action # This is the last action that was performed
+		self.last_action = action # Remember the action that was performed when receiving the reward
 		return action
+
 	def receive(self, reward):
 		self.totals[self.last_action] += reward
+
+
 
 # An agent that chooses an action according to the probability that it maximizes the expected reward
 class ThompsonAgent:
 	def __str__(self):
 		return 'Thompson agent'
+
 	def __init__(self):
-		self.action_history = []
-		self.reward_history = []
+		self.successes = {}
+		self.failures = {}
+
 	def choose(self, actions):
-		successes = {action: 0 for action in actions}
-		failures = {action: 0 for action in actions}
-		for action, reward in zip(self.action_history, self.reward_history):
-			if reward == 1:
-				successes[action] += 1
-			elif reward == 0:
-				failures[action] += 1
-		estimates = {action: scipy.stats.beta.rvs(successes[action] + 1, failures[action] + 1) for action in actions}
+		# Add pseudocounts, perform additive smoothing
+		for action in actions:
+			if action not in self.successes:
+				self.successes[action] = 1
+			if action not in self.failures:
+				self.failures[action] = 1
+
+		estimates = {action: scipy.stats.beta.rvs(self.successes[action] + 1, self.failures[action] + 1) for action in actions}
 		action = max(actions, key = lambda action: estimates[action])
-		self.action_history.append(action)
+
+		self.last_action = action
 		return action
+		
 	def receive(self, reward):
-		self.reward_history.append(reward)
+		if reward == 0:
+			self.failures[self.last_action] += 1
+		elif reward == 1:
+			self.successes[self.last_action] += 1
+
+
 
 # List of all possible actions
-number_of_actions = 10
-actions = [scipy.stats.bernoulli(scipy.stats.uniform().rvs()) for n in range(number_of_actions)]
+actions = [scipy.stats.bernoulli(scipy.stats.uniform().rvs()) for arm in range(10)]
 
-# Expected returns for each action
-returns = {action: action.expect() for action in actions}
-best_return = max(returns.values())
-print('Expected returns: ' + ', '.join('{:.2f}'.format(value) for value in returns.values()))
-print('Best expected return: ' + '{:.2f}'.format(best_return))
+# Expected reward for each action
+rewards = {action: action.expect() for action in actions}
+best_reward = max(rewards.values())
+print('Expected rewards: ' + ', '.join('{:.2f}'.format(value) for value in rewards.values()))
+print('Best expected reward: {:.2f}'.format(best_reward))
 
 # List of agents
-agents = [OptimalAgent(returns), RandomAgent(), GreedyAgent(), ThompsonAgent()]
+agents = [OptimalAgent(rewards), RandomAgent(), GreedyAgent(), ThompsonAgent()]
 
 # History of rewards received by each agent
-rewards = {}
-for agent in agents:
-	rewards[agent] = []
+rewards = {agent: [] for agent in agents}
 
 # Simulation
-number_of_rounds = 1000
-for rounds in range(number_of_rounds):
+rounds = range(1000)
+for t in rounds:
 	for agent in agents:
 
 		# Find action chosen by agent
-		choice = agent.choose(actions)
+		action = agent.choose(actions)
 
-		# Find reward returned by chosen action
-		reward = choice.rvs()
+		# Find reward returned by chosen action (sample the reward distribution for that action)
+		reward = action.rvs()
 
 		# Reward agent for chosen action
 		agent.receive(reward)
@@ -127,17 +131,18 @@ for rounds in range(number_of_rounds):
 		# Add reward to history of rewards for this agent
 		rewards[agent].append(reward)
 
-optimal_cumulative_rewards = [best_return * round_number for round_number in range(number_of_rounds)]
+# Find the expected total reward under the best expected return
+best_accumulated_rewards = [t * best_reward for t in rounds]
 
-plt.title('Multi-armed bandit problem with ' + str(number_of_actions) + ' arms')
+# Find average regret per round (difference between best expected total reward and actual total reward, divided by number of rounds)
 for agent in agents:
-	cumulative_rewards = list(itertools.accumulate(rewards[agent]))
-	cumulative_regret = [optimal_cumulative_rewards[round_number] - cumulative_rewards[round_number] for round_number in range(number_of_rounds)]
-	average_regret = [cumulative_regret[round_number] / (round_number + 1) for round_number in range(number_of_rounds)]
-	plt.plot(cumulative_regret, label = str(agent))
+	accumulated_rewards = list(itertools.accumulate(rewards[agent]))
+	accumulated_regret = [best_accumulated_rewards[t] - accumulated_rewards[t] for t in rounds]
+	average_regret = [accumulated_regret[t] / (t + 1) for t in rounds]
+	plt.plot(average_regret, label = str(agent))
 
+plt.title('Multi-armed bandit problem with {} arms'.format(len(actions)))
 plt.xlabel('Rounds')
 plt.ylabel('Average regret per round')
-# plt.yscale('log')
 plt.legend()
 plt.show()
