@@ -1,4 +1,4 @@
-# A simulation of the multi-armed bandit problem
+# Simulation of the multi-armed bandit problem
 
 import numpy as np
 import scipy.stats
@@ -7,7 +7,7 @@ import itertools
 
 
 
-# An agent that chooses actions according to a Gibbs/Boltzmann distribution
+# Agent that chooses actions according to a Gibbs/Boltzmann distribution
 class SoftmaxAgent:
 	def __init__(self, temperature):
 		self.temperature = temperature
@@ -26,7 +26,7 @@ class SoftmaxAgent:
 
 
 
-# An agent that chooses actions according to an epsilon-greedy strategy
+# Agent that chooses actions according to an epsilon-greedy strategy
 # Chooses a random action with a small probability epsilon to escape local minima
 class EpsilonGreedyAgent:
 	def __init__(self, epsilon):
@@ -43,7 +43,7 @@ class EpsilonGreedyAgent:
 
 
 
-# A (cheating) agent that chooses the action with the highest expected reward
+# (Cheating) agent that chooses the action with the highest expected reward
 class OptimalAgent:
 	def __init__(self, rewards):
 		# The real expected rewards are 'sneaked in'
@@ -60,7 +60,7 @@ class OptimalAgent:
 
 
 
-# An agent that chooses randomly between actions
+# Agent that chooses randomly between actions
 class RandomAgent:
 	def __str__(self):
 		return 'Random agent'
@@ -73,7 +73,7 @@ class RandomAgent:
 
 
 
-# An agent that chooses the action with the highest point estimate of the expected reward
+# Agent that chooses the action with the highest point estimate of the expected reward
 # This agent is very sensitive to the first samples it obtains for estimates and can get stuck in a suboptimal strategy
 class GreedyAgent:
 	def __str__(self):
@@ -95,16 +95,16 @@ class GreedyAgent:
 		estimates = {action: self.totals[action] / self.counts[action] for action in actions}
 		action = max(actions, key = lambda action: estimates[action])
 
-		self.last_action = action # Remember the action that was performed when receiving the reward
+		self.action = action # Remember the action that was performed when receiving the reward
 		return action
 
 	def receive(self, reward):
-		self.counts[self.last_action] += 1
-		self.totals[self.last_action] += reward
+		self.counts[self.action] += 1
+		self.totals[self.action] += reward
 
 
 
-# An agent that chooses an action according to the probability that it maximizes the expected reward
+# Agent that chooses an action according to the probability that it maximizes the expected reward
 # This one assumes rewards are sampled from a Bernoulli distribution with a beta distribution as a prior
 class ThompsonAgent:
 	def __str__(self):
@@ -125,14 +125,14 @@ class ThompsonAgent:
 		estimates = {action: scipy.stats.beta.rvs(self.successes[action] + 1, self.failures[action] + 1) for action in actions}
 		action = max(actions, key = lambda action: estimates[action])
 
-		self.last_action = action # Remember the action that was performed when receiving the reward
+		self.action = action # Remember the action that was performed when receiving the reward
 		return action
 		
 	def receive(self, reward):
 		if reward == 0:
-			self.failures[self.last_action] += 1
+			self.failures[self.action] += 1
 		elif reward == 1:
-			self.successes[self.last_action] += 1
+			self.successes[self.action] += 1
 
 
 
