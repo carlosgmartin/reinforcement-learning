@@ -4,6 +4,8 @@ import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 import itertools
+import collections
+import sympy.stats
 
 
 
@@ -129,6 +131,7 @@ class ThompsonAgent:
 		return action
 		
 	def receive(self, reward):
+		# reward = scipy.stats.bernoulli(reward).rvs() # Extension to distributions with support in [0, 1]
 		if reward == 0:
 			self.failures[self.action] += 1
 		elif reward == 1:
@@ -136,8 +139,41 @@ class ThompsonAgent:
 
 
 
+class GaussianThompsonAgent:
+	def __str__(self):
+		return 'Gaussian Thompson agent'
+
+	def __init__(self):
+		self.values = collections.defaultdict(lambda: [])
+
+	def choose(self, actions):
+		for action in actions:
+			if len(self.values[action]) == 0:
+				self.action = action
+				return action
+
+		samples = {}
+		for action in actions:
+			params = scipy.stats.norm.fit(self.values[action])
+			distribution = scipy.stats.norm(*params)
+			# Sample the mean of this distribution
+			samples[action] = np.mean(distribution.rvs(size=20))
+
+		action = max(actions, key = lambda action: samples[action])
+		self.action = action
+		return action
+
+	def receive(self, reward):
+		self.values[self.action].append(reward)
+
+
+
 # List of all possible actions
 actions = [scipy.stats.bernoulli(scipy.stats.uniform().rvs()) for arm in range(10)]
+actions = [scipy.stats.norm(scipy.stats.norm.rvs(), np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
+actions = [scipy.stats.poisson(np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
+actions = [scipy.stats.lognorm(np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
+actions = [scipy.stats.gamma(np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
 
 # Expected reward for each action
 rewards = {action: action.expect() for action in actions}
@@ -146,7 +182,7 @@ print('Expected rewards: ' + ', '.join('{:.2f}'.format(value) for value in rewar
 print('Best expected reward: {:.2f}'.format(best_reward))
 
 # List of agents
-agents = [OptimalAgent(rewards), RandomAgent(), GreedyAgent(), ThompsonAgent()]
+agents = [OptimalAgent(rewards), RandomAgent(), GreedyAgent(), ThompsonAgent(), GaussianThompsonAgent()]
 
 # History of rewards received by each agent
 rewards = {agent: [] for agent in agents}
@@ -180,5 +216,5 @@ for agent in agents:
 plt.title('Multi-armed bandit problem with {} arms'.format(len(actions)))
 plt.xlabel('Rounds')
 plt.ylabel('Average regret per round')
-plt.legend()
+plt.legend(loc='best')
 plt.show()
