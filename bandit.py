@@ -110,7 +110,7 @@ class GreedyAgent:
 # This one assumes rewards are sampled from a Bernoulli distribution with a beta distribution as a prior
 class ThompsonAgent:
 	def __str__(self):
-		return 'Thompson agent'
+		return 'Thompson agent (finite support)'
 
 	def __init__(self):
 		self.successes = {}
@@ -131,7 +131,7 @@ class ThompsonAgent:
 		return action
 		
 	def receive(self, reward):
-		# reward = scipy.stats.bernoulli(reward).rvs() # Extension to distributions with support in [0, 1]
+		reward = scipy.stats.bernoulli(reward).rvs()
 		if reward == 0:
 			self.failures[self.action] += 1
 		elif reward == 1:
@@ -140,40 +140,34 @@ class ThompsonAgent:
 
 
 class GaussianThompsonAgent:
-	def __str__(self):
-		return 'Gaussian Thompson agent'
-
 	def __init__(self):
-		self.values = collections.defaultdict(lambda: [])
-
+		self.rewards = collections.defaultdict(lambda: [])
+	def __str__(self):
+		return 'Thompson agent (Gaussian)'
 	def choose(self, actions):
+		samples = dict()
 		for action in actions:
-			if len(self.values[action]) == 0:
+			count = len(self.rewards[action])
+			if count < 2:
 				self.action = action
-				return action
-
-		samples = {}
-		for action in actions:
-			params = scipy.stats.norm.fit(self.values[action])
-			distribution = scipy.stats.norm(*params)
-			# Sample the mean of this distribution
-			samples[action] = np.mean(distribution.rvs(size=20))
-
-		action = max(actions, key = lambda action: samples[action])
-		self.action = action
-		return action
-
+				return self.action
+			mean = np.mean(self.rewards[action])
+			var = np.var(self.rewards[action], ddof=1)
+			samples[action] = mean + var / np.sqrt(count) * scipy.stats.t(count - 1).rvs()
+		self.action = max(actions, key = lambda action: samples[action])
+		return self.action
 	def receive(self, reward):
-		self.values[self.action].append(reward)
+		self.rewards[self.action].append(reward)
 
 
 
 # List of all possible actions
-actions = [scipy.stats.bernoulli(scipy.stats.uniform().rvs()) for arm in range(10)]
 actions = [scipy.stats.norm(scipy.stats.norm.rvs(), np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
 actions = [scipy.stats.poisson(np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
 actions = [scipy.stats.lognorm(np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
+actions = [scipy.stats.cauchy(scipy.stats.norm.rvs(), np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
 actions = [scipy.stats.gamma(np.exp(scipy.stats.norm.rvs())) for arm in range(10)]
+actions = [scipy.stats.bernoulli(scipy.stats.uniform().rvs()) for arm in range(10)]
 
 # Expected reward for each action
 rewards = {action: action.expect() for action in actions}

@@ -104,6 +104,12 @@ class QAgent:
 
 
 
+
+
+
+
+
+
 # Agent that performs Q-learning
 class QAgentBroken:
 	# Returns the softmax (normalized exponential) of a vector
@@ -381,6 +387,44 @@ state = next_state
 
 
 
+
+
+
+
+
+
+
+# Use Good-Turing estimation for unknown states?
+
+
+transition(state, action, next_state)
+reward(state, action, reward)
+
+
+class Agent:
+	def __init__(self):
+		self.transitions = collections.defaultdict(lambda: 0)
+		self.rewards = collections.defaultdict(lambda: [])
+	def observe(self, state):
+		self.state = state
+	def choose(self, actions):
+		for action in actions:
+			rewards = self.rewards[self.state, action]
+			self.action = action
+		return self.action
+	def receive(self, reward):
+		self.rewards[self.state, self.action] += 1
+
+
+class Agent:
+	def __init__(self):
+		self.experiences = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
+	def observe(self, state):
+		self.state = state
+	def choose(self, actions):
+		for action in self.actions:
+			rewards = self.experiences()
+	def receive(self, reward):
 
 
 
